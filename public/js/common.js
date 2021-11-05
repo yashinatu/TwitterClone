@@ -1,3 +1,6 @@
+// Globals
+var cropper;
+
 $("#postTextarea, #replyTextarea").keyup(event => {
     var textbox = $(event.target);
     var value = textbox.val().trim();
@@ -67,15 +70,65 @@ $("#deletePostModal").on("show.bs.modal", (event) => {
 $("#deletePostButton").click((event) => {
     var postId = $(event.target).data("id");
 
-
     $.ajax({
         url: `/api/posts/${postId}`,
         type: "DELETE",
-        success: () => {
+        success: (data, status, xhr) => {
+
+            if(xhr.status != 202) {
+                alert("could not delete post");
+                return;
+            }
             
-           location.reload();
+            location.reload();
+        }
+    })
+})
+
+$("#filePhoto").change(function(){    
+    if(this.files && this.files[0]) {
+        var reader = new FileReader();
+        reader.onload = (e) => {
+            var image = document.getElementById("imagePreview");
+            image.src = e.target.result;
+
+            if(cropper !== undefined) {
+                cropper.destroy();
+            }
+
+            cropper = new Cropper(image, {
+                aspectRatio: 1 / 1,
+                background: false
+            });
 
         }
+        reader.readAsDataURL(this.files[0]);
+    }
+    else {
+        console.log("nope")
+    }
+})
+
+$("#imageUploadButton").click(() => {
+    var canvas = cropper.getCroppedCanvas();
+
+    if(canvas == null) {
+        alert("Could not upload image. Make sure it is an image file.");
+        return;
+    }
+
+    canvas.toBlob((blob) => {
+        var formData = new FormData();
+        formData.append("croppedImage", blob);
+
+        $.ajax({
+            url: "/api/users/profilePicture",
+            type: "POST",
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: () => location.reload()
+        })
     })
 })
 
@@ -137,6 +190,41 @@ $(document).on("click", ".post", (event) => {
     }
 });
 
+$(document).on("click", ".followButton", (e) => {
+    var button = $(e.target);
+    var userId = button.data().user;
+    
+    $.ajax({
+        url: `/api/users/${userId}/follow`,
+        type: "PUT",
+        success: (data, status, xhr) => { 
+            
+            if (xhr.status == 404) {
+                alert("user not found");
+                return;
+            }
+            
+            var difference = 1;
+            if(data.following && data.following.includes(userId)) {
+                button.addClass("following");
+                button.text("Following");
+            }
+            else {
+                button.removeClass("following");
+                button.text("Follow");
+                difference = -1;
+            }
+            
+            var followersLabel = $("#followersValue");
+            if(followersLabel.length != 0) {
+                var followersText = followersLabel.text();
+                followersText = parseInt(followersText);
+                followersLabel.text(followersText + difference);
+            }
+        }
+    })
+});
+
 function getPostIdFromElement(element) {
     var isRoot = element.hasClass("post");
     var rootElement = isRoot == true ? element : element.closest(".post");
@@ -166,7 +254,7 @@ function createPostHtml(postData, largeFont = false) {
 
     var likeButtonActiveClass = postData.likes.includes(userLoggedIn._id) ? "active" : "";
     var retweetButtonActiveClass = postData.retweetUsers.includes(userLoggedIn._id) ? "active" : "";
-    var largeFontClass = largeFont? "largeFont": "";
+    var largeFontClass = largeFont ? "largeFont" : "";
 
     var retweetText = '';
     if(isRetweet) {
@@ -194,8 +282,8 @@ function createPostHtml(postData, largeFont = false) {
     }
 
     var buttons = "";
-    if(postData.postedBy._id == userLoggedIn._id){
-        buttons = `<button data-id="${postData._id}" data-toggle = "modal" data-target="#deletePostModal"><i class = 'fas fa-times'></i></button>`
+    if (postData.postedBy._id == userLoggedIn._id) {
+        buttons = `<button data-id="${postData._id}" data-toggle="modal" data-target="#deletePostModal"><i class='fas fa-times'></i></button>`;
     }
 
     return `<div class='post ${largeFontClass}' data-id='${postData._id}'>
