@@ -8,7 +8,7 @@ const Chat = require('../../schemas/ChatSchema');
 const Message = require('../../schemas/MessageSchema');
 const Notification = require('../../schemas/NotificationSchema');
 
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false }));
 
 router.get("/", async (req, res, next) => {
 
