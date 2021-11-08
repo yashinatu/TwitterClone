@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const port = 8080;
+const port = process.env.PORT || 8080;
 const middleware = require('./middleware')
 const path = require('path')
 const bodyParser = require("body-parser")
